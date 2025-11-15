@@ -1,0 +1,172 @@
+library(knitr)
+opts_chunk$set(comment = NA, prompt = FALSE, cache = FALSE, echo = TRUE,
+               results = "asis")
+library(haven)
+library(rmdformats)
+library(ggplot2)
+library(tidyverse)
+library(tidyr)
+library(survminer)
+library(wesanderson)
+library(dplyr)
+library(janitor)
+library(survival)
+library(fastDummies)
+library(car) #VIF
+library(tableone)
+library(ggpubr)
+library(gtsummary)
+library(readr)
+library(lubridate)
+library(zoo)
+library(labelled)
+library(survivalAnalysis)
+library(dplyr)
+library(tidyr)
+
+start_time <- Sys.time()
+
+setwd('/gpfs/data/massielab/data/srtr/srtr2501/saf/sas')
+
+
+cand_thor <- read_sas("cand_thor.sas7bdat", NULL) %>%  
+  zap_formats() %>% zap_labels()
+
+
+cand_thor1 <- cand_thor %>%
+  filter(CAN_LISTING_DT >= as.Date("2018-01-01") & CAN_LISTING_DT <= as.Date("2024-12-12")) %>%
+  select(PX_ID, CAN_LISTING_CTR_CD, CAN_LISTING_CTR_TY)%>%
+  mutate(CTR_CD = CAN_LISTING_CTR_CD ) %>%
+  mutate(CTR_TY = CAN_LISTING_CTR_TY) %>%
+  select(-c(CAN_LISTING_CTR_CD, CAN_LISTING_CTR_TY))
+
+
+institution <- read_sas("institution.sas7bdat", NULL) %>%
+  zap_formats()%>% zap_labels()
+
+
+institution1 <- institution %>%
+  mutate(PRIMARY_ZIP = str_sub(PRIMARY_ZIP, 1, 5)) %>%
+  select(CTR_CD, CTR_TY, CTR_ID, PRIMARY_ZIP)
+
+
+missing_codes <- setdiff(unique(cand_thor1$CTR_CD), unique(institution1$CTR_CD))
+
+
+if (length(missing_codes) == 0) {
+  cat("there is no missing center\n")
+} else {
+  cat("missing values:\n")
+  print(missing_codes)
+}
+
+
+merged_candidates_with_zipcode <- cand_thor1 %>%
+  left_join(institution1, by = c("CTR_CD", "CTR_TY"))
+
+
+setwd("/gpfs/home/fatman01/Heart simulator")
+
+zipcode_latlong3  <- read_csv("USZipsWithLatLon_20231227.csv", show_col_types = FALSE)
+
+
+missing_codes <- setdiff(unique(merged_candidates_with_zipcode$PRIMARY_ZIP), unique(zipcode_latlong3$`postal code`))
+
+
+if (length(missing_codes) == 0) {
+  cat("there is no missing center\n")
+} else {
+  cat("missing values:\n")
+  print(missing_codes)
+}
+
+
+zipcode_latlong3 <- zipcode_latlong3 %>%
+  mutate( PRIMARY_ZIP = `postal code`) %>%
+  select(-`postal code`)
+
+
+# missing lat long of the given zip codes are as follows:
+# lat long of zipcode 00936 (San Juan, Puerto Rico), with a latitude of approximately (18.382981) and a longitude of approximately (-66.064729);
+# The ZIP code (00968) is in Guaynabo, Puerto Rico, with a latitude of approximately (18.40609) and a longitude of approximately (-66.10123);
+# The ZIP code (00919) is for San Juan, Puerto Rico, with a latitude of (18.412896) and a longitude of (-66.065019).
+
+merged_candidate_dataset_with_latlong <- merged_candidates_with_zipcode %>%
+  left_join(zipcode_latlong3, by = c("PRIMARY_ZIP")) %>%
+  select(PX_ID, CTR_CD, CTR_ID, CTR_TY, PRIMARY_ZIP, latitude, longitude) %>%
+  mutate(
+    latitude = ifelse(PRIMARY_ZIP == "00936", 18.382981, latitude),
+    longitude = ifelse(PRIMARY_ZIP == "00936", -66.064729, longitude)
+  )
+
+write.csv(merged_candidate_dataset_with_latlong, file = 'candidate_center_withlatitudeandlongitude.csv', row.names = FALSE)
+
+
+setwd("/gpfs/data/massielab/data/srtr/srtr2501/saf/sas")
+
+don_deceased <- read_sas("donor_deceased.sas7bdat", NULL) %>%  
+  zap_formats() %>% zap_labels()
+
+table(don_deceased$DON_OPO_CTR_ID)
+
+
+don_deceased1 <- don_deceased %>%
+  filter(DON_RECOV_DT >= as.Date("2017-01-01")) %>%
+  select(DONOR_ID, DON_OPO_CTR_ID) %>%
+  mutate(CTR_ID = DON_OPO_CTR_ID ) %>%
+  select(-DON_OPO_CTR_ID)
+
+
+merged_donor <- don_deceased1 %>%
+  inner_join(institution1, by = "CTR_ID") %>%
+  select(DONOR_ID, CTR_ID , CTR_CD, CTR_TY  )
+
+
+table(don_deceased$DON_OPO_CTR_ID)
+table(institution$CTR_ID)
+
+
+
+missing_codes <- setdiff(unique(don_deceased1$CTR_ID), unique(institution1$CTR_ID))
+
+if (length(missing_codes) == 0) {
+  cat("there is no missing center\n")
+} else {
+  cat("missing values:\n")
+  print(missing_codes)
+}
+
+
+
+merged_donors_with_zipcode <- don_deceased1 %>%
+  left_join(institution1, by = "CTR_ID")
+
+table(merged_donors_with_zipcode$PRIMARY_ZIP)
+
+
+setwd("/gpfs/home/fatman01/Heart simulator")
+
+
+missing_codes <- setdiff(unique(merged_donors_with_zipcode$PRIMARY_ZIP), unique(zipcode_latlong3$PRIMARY_ZIP))
+
+
+if (length(missing_codes) == 0) {
+  cat("there is no missing center\n")
+} else {
+  cat("missing values:\n")
+  print(missing_codes)
+}
+
+
+
+merged_donor_dataset_with_latlong <- merged_donors_with_zipcode %>%
+  left_join(zipcode_latlong3, by = c("PRIMARY_ZIP")) %>%
+  select(DONOR_ID, CTR_CD, CTR_ID, CTR_TY, PRIMARY_ZIP, latitude, longitude) %>%
+  mutate(
+    latitude = ifelse(PRIMARY_ZIP == "00968", 18.40609, latitude),
+    longitude = ifelse(PRIMARY_ZIP == "00968", -66.10123, longitude)
+  )
+
+write.csv(merged_donor_dataset_with_latlong, file = 'donor_hospital_withlatitudeandlongitude.csv', row.names = FALSE)
+
+
