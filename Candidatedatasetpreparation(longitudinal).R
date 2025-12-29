@@ -2000,9 +2000,14 @@ table(result1$CAN_ABO)
 
 
 result1 <- result1 %>%
-  group_by(PX_ID) %>%
-  filter(!any(CAN_ABO %in% c("A1", "A2"))) %>%
-  ungroup()
+  mutate(
+    CAN_ABO = case_when(
+      CAN_ABO %in% c("A1", "A2")   ~ "A",
+      CAN_ABO %in% c("A1B", "A2B") ~ "AB",
+      TRUE                         ~ CAN_ABO
+    )
+  )
+
 
 
 
