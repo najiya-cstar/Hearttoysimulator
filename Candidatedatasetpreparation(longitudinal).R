@@ -1931,9 +1931,125 @@ result1 <- result %>%
 
 
 
+
+num_unique_px_ids <- result1 %>% 
+  summarise(count = n_distinct(PX_ID)) %>% 
+  pull(count)
+
+print(num_unique_px_ids)
+
+table(result1$status_initial)
+
+
+for (i in 1:132) {
+  column_name <- colnames(result1)[i]
+  column_data <- result1[[i]]
+  missing_count <- sum(is.na(column_data))
+  
+  cat("\n----------------------------------\n")
+  cat("Column", i, "(", column_name, ") has", missing_count, "missing values.\n")
+  cat("Value counts (including NAs):\n")
+  #print(table(column_data, useNA = "ifany"))
+}
+
+result1 <- result1 %>%
+  select(-c(SVO2, CAN_RACE, CAN_MIN_HGT, CAN_MAX_HGT, CAN_ACPT_HIST_CIGARETTE, CAN_ICU, CAN_DRUG_TREAT_COPD, CAN_EXERCISE_O2, CAN_DRUG_TREAT_HYPERTEN , peripheral_vascular, CAN_ANTI_ARRYTHM, CAN_OTHER_TOBACCO_USE,
+            CAN_PULM_EMBOL))
+
+
+result1 <- result1 %>%
+  group_by(PX_ID) %>%
+  filter(
+    all(!is.na(CenterId)) & 
+      all(!is.na(cardiac_output)) &
+      all(!is.na(cardiac_index)) &
+      all(!is.na(AST)) &
+      all(!is.na(creatinine)) &
+      all(!is.na(BUN)) &
+      all(!is.na(INR)) &
+      all(!is.na(CAN_HGT_CM)) &
+      all(!is.na(CAN_WGT_KG)) &
+      all(!is.na(dialysis)) &
+      all(!is.na(CAN_BMI)) &
+      all(!is.na(cpo)) &
+      all(!is.na(api)) &
+      all(!is.na(papi))
+  ) %>%
+  ungroup()
+
+
+# recheck the missingness
+
+for (i in 1:119) {
+  column_name <- colnames(result1)[i]
+  column_data <- result1[[i]]
+  missing_count <- sum(is.na(column_data))
+  
+  cat("\n----------------------------------\n")
+  cat("Column", i, "(", column_name, ") has", missing_count, "missing values.\n")
+  cat("Value counts (including NAs):\n")
+  #print(table(column_data, useNA = "ifany"))
+}
+
+
+
+setdiff(colnames(result1), colnames(candidate_dataset))
+
+
+table(result1$CAN_ABO)
+
+
+result1 <- result1 %>%
+  group_by(PX_ID) %>%
+  filter(!any(CAN_ABO %in% c("A1", "A2"))) %>%
+  ungroup()
+
+
+
+result1 <- result1 %>%
+  relocate(status_initial, status_criteria, status, ExtensionNumber, exception, listing_description, FormStatus_descrip, .after = t_stop)
+
+result2 <- result1 %>%
+  filter(t_start != t_stop)
+
+
+
+result3 <- result2 %>%
+  group_by(PX_ID) %>%
+  arrange(t_start, .by_group = TRUE) %>%
+  mutate(
+    status = as.character(status),
+    status_initial = as.character(status_initial),
+    status = na.locf(if_else(row_number() == 1, status_initial, status),
+                     na.rm = FALSE)
+  ) %>%
+  ungroup()
+
+
+
+
+result4 <- result3 %>%
+  group_by(PX_ID) %>%
+  mutate(
+    status1 = if_else(
+      as.character(status) != as.character(status_initial),
+      as.character(status),
+      as.character(status_initial)
+    )
+  ) %>%
+  relocate(status1, .after = status) %>%
+  ungroup()
+
+
 setwd("/gpfs/home/fatman01/PTRdatasetcompilation")
 
-save(result1, file = 'Candidatedatasetforsimulation.RData')
-write.csv(result1, file = 'Candidatedatasetforsimulation.csv', row.names = FALSE)
+save(result4, file = 'Candidatedatasetforsimulation.RData')
+write.csv(result4, file = 'Candidatedatasetforsimulation.csv', row.names = FALSE)
+
+
+
+
+
+
 
 
