@@ -51,7 +51,7 @@ Import the donor hospital lat long dataset generated from Latlong_candcenter_don
 
 # Candidatedatasetpreparation(longitudinal).R
 
-This code uses JAMA paper code (https://github.com/kevinz1194/Heart-Continuous-Score) to build the longitudinal candidate dataset. Their code nice summarizes all the steps required to build the data
+This code uses JAMA paper code (https://github.com/kevinz1194/Heart-Continuous-Score) to build the longitudinal candidate dataset. Their code nicely summarizes all the steps required to build the data
 including the data import, status changes as the justification forms are submitted and approved (via exception requests), changes in the laboratory variables (such as sodium, albumin), hemodynamic variables
 (such as blood pressure, capillary artery wedge pressure (CAPW)), and the device usage variables (such as ECMO, BiVAD). 
 
@@ -61,6 +61,15 @@ All the necessary steps to build the candidate dataset are provided in their Rea
 of Candidatedatasetpreparation(longitudinal).R to generate the Candidatedatasetforsimulation csv file.
 
 # 1925 - # 1938: Finally, use the Latlong_candcenter_donorhospital.R code to merge the latitude and longitude corresponding to each PX_ID.
+
+
+# 1945: Check the missingness in all the columns individually and remove the columns (variables) which has missing dataset
+
+As per current dataset, we follow two approach to remove the missingness
+
+1. remove enire columns (such as SVO2 and others, since a substantial number of row contains NA values)
+2. remove the missing rows only (such as for api, ONLY 100-200 row contains NA values) 
+
 
 # code description end
 
